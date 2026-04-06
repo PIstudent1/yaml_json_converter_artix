@@ -1,0 +1,25 @@
+{
+   "resultTemplates":[
+      {
+         "id":"900200",
+         "name":"Шаблон",
+         "active":true,
+         "objectType":"POSITION",
+         "conditions":[
+            {
+               "active":true,
+               "expression":"cf.hasInventCatalogs([u'1'])",
+               "type":"COMMON"
+            },
+            {
+               "active":true,
+               "expression":"cf.inventQuantInCheckByCode([object['tmc']['code']]) >= ${tmcQuant}",
+               "type":"COUPON"
+            }
+         ],
+         "resultType":"IMPACT",
+         "rateType":"SUM",
+         "calcExpr":"(object['price'] - ${fixedValue}) * object['bquant']"
+      }
+   ]
+}

@@ -1,0 +1,78 @@
+- !!python/object:artixds.domain.Discount
+  active: true
+  campaign: null
+  cashText: null
+  clientDisplayText: null
+  clientText: null
+  conditions:
+  - !!python/object:artixds.domain.DiscountCondition
+    condition: !!python/unicode 'not cf.isPartOfDisKit()'
+    definition: null
+    description: "\u041F\u043E\u0437\u0438\u0446\u0438\u044F \u043D\u0435 \u044F\u0432\
+      \u043B\u044F\u0435\u0442\u0441\u044F \u0447\u0430\u0441\u0442\u044C\u044E \u043D\
+      \u0430\u0431\u043E\u0440\u0430"
+    specification: null
+    templateValues: []
+  - !!python/object:artixds.domain.DiscountCondition
+    condition: !!python/unicode 'object[''tmc''][''price''] > object[''tmc''][''minprice'']'
+    definition: null
+    description: "\u041D\u0430 \u0442\u043E\u0432\u0430\u0440 \u0440\u0430\u0437\u0440\
+      \u0435\u0448\u0435\u043D\u0430 \u0441\u043A\u0438\u0434\u043A\u0430"
+    specification: null
+    templateValues: []
+  - !!python/object:artixds.domain.DiscountCondition
+    condition: !!python/unicode 'object[''opcode''] != 63'
+    definition: null
+    description: "\u041F\u043E\u0437\u0438\u0446\u0438\u044F \u043D\u0435 \u044F\u0432\
+      \u043B\u044F\u0435\u0442\u0441\u044F \u0441\u0435\u0440\u0442\u0438\u0444\u0438\
+      \u043A\u0430\u0442\u043E\u043C"
+    specification: null
+    templateValues: []
+  - !!python/object:artixds.domain.DiscountCondition
+    condition: !!python/unicode 'cf.hasInventCatalogs([u''100028''])'
+    definition: null
+    description: !!python/unicode ''
+    specification: null
+    templateValues: []
+  - !!python/object:artixds.domain.DiscountCondition
+    condition: !!python/unicode 'object["bquant"] == 2.00'
+    definition: !!python/unicode 'cf.inventQuantInCheckByCode([object[''tmc''][''code'']])
+      == 2.0'
+    description: !!python/unicode ''
+    specification: !!python/unicode ''
+    templateValues: []
+  - !!python/object:artixds.domain.DiscountCardCondition
+    condition: !!python/unicode 'card["card"]["number"].startswith(u"12")'
+    definition: !!python/unicode 'card["card"]["number"].startswith(${..})'
+    description: "\u041D\u043E\u043C\u0435\u0440 \u043A\u0430\u0440\u0442\u044B \u043D\
+      \u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0441 12"
+    specification: "\u041D\u043E\u043C\u0435\u0440 \u043A\u0430\u0440\u0442\u044B\
+      \ \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0441 [..]"
+    templateValues:
+    - {defaultValue: !!python/unicode '12', label: "\u041F\u0440\u0435\u0444\u0438\
+        \u043A\u0441 \u043D\u043E\u043C\u0435\u0440\u0430 \u043A\u0430\u0440\u0442\
+        \u044B", type: !!python/unicode 'string'}
+  - !!python/object:artixds.domain.DiscountCouponCondition
+    condition: !!python/unicode 'coupon["number"] == u"2"'
+    definition: !!python/unicode 'coupon["number"] == ${..}'
+    description: "\u041D\u043E\u043C\u0435\u0440 \u043A\u0443\u043F\u043E\u043D\u0430\
+      \ \u0440\u0430\u0432\u043D\u043E 2 "
+    specification: "\u041D\u043E\u043C\u0435\u0440 \u043A\u0443\u043F\u043E\u043D\u0430\
+      \ \u0440\u0430\u0432\u043D\u043E [..]"
+    templateValues:
+    - {defaultValue: !!python/unicode '2', label: "\u041D\u043E\u043C\u0435\u0440\
+        \ \u043A\u0443\u043F\u043E\u043D\u0430", type: !!python/unicode 'string'}
+  counters: []
+  coupons: []
+  discountMarks: []
+  discountRate: !!python/object:artixds.domain.CalculateDiscountRate {type: !!python/unicode 'sum',
+    value: !!python/unicode '(object[''price''] - 100.0) * object[''bquant'']'}
+  gifts: []
+  id: 40
+  minPriceIgnored: false
+  name: "2 \u0442\u043E\u0432\u0430\u0440\u0430"
+  objects:
+  - !!python/object:artixds.domain.CheckObject
+    data: {}
+  reports: []
+  showCashTextToConsultant: false

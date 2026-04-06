@@ -1,0 +1,67 @@
+{
+   "resultTemplates":[
+      {
+         "id":"900137",
+         "name":"Процентный бонус на товары не входящие в группы",
+         "description":"",
+         "variables":{
+            "percentValue":{
+               "type":"DOUBLE",
+               "rules":{
+                  "percentValue":[
+                     {
+                        "ruleType":"MAX",
+                        "param":"100"
+                     }
+                  ]
+               }
+            },
+            "productGroups":{
+               "type":"PRODUCT_GROUPS"
+            }
+         },
+         "liveText":{
+            "200":{
+               "type":"STATIC_TEXT",
+               "label":"На карту покупателя будут начислены бонусные баллы в размере"
+            },
+            "percentValue":{
+               "type":"DOUBLE",
+               "rules":{
+                  "percentValue":[
+                     {
+                        "ruleType":"MAX",
+                        "param":"100"
+                     }
+                  ]
+               }
+            },
+            "201":{
+               "type":"STATIC_TEXT",
+               "label":"% от стоимости товаров не входящих в группы"
+            },
+            "productGroups":{
+               "type":"PRODUCT_GROUPS"
+            }
+         },
+         "active":true,
+         "creation":1770385883241,
+         "modification":1770386034455,
+         "objectType":"POSITION",
+         "conditions":[
+            {
+               "active":true,
+               "expression":"not cf.hasInventGroup([${productGroups}])",
+               "type":"COMMON"
+            }
+         ],
+         "resultType":"IMPACT",
+         "rateType":"SUM",
+         "calcExpr":"round(${percentValue}/100.0 * object['price'] + ${riseRoundValue}, ${roundValue}) * object['cquant']",
+         "tags":[
+            "PERCENT",
+            "PRODUCT_GROUP"
+         ]
+      }
+   ]
+}

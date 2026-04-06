@@ -1,0 +1,124 @@
+{
+   "resultTemplates":[
+      {
+         "id":"165",
+         "name":"Процентная скидка на M шт. товаров из группы товаров при покупке N шт. товаров из другой группы товаров",
+         "description":"Например:<br/><i>При покупке 3 единиц (кг) товара из группы \"Шашлык\" будет предоставлена процентная скидка в размере 30% на 2 единиц товара из группы\"Уголь\"</i><br/>В таком случае в чеке должны присутствовать все 5 единиц товара, иначе акция не сработает",
+         "variables":{
+            "productCount1":{
+               "type":"DOUBLE",
+               "description":"Количество товара"
+            },
+            "productGroups1":{
+               "type":"PRODUCT_GROUPS",
+               "description":"Список идентификаторов групп товаров"
+            },
+            "percentValue":{
+               "type":"DOUBLE",
+               "description":"Размер скидки в процентах",
+               "rules":{
+                  "percentValue":[
+                     {
+                        "ruleType":"MAX",
+                        "param":"100"
+                     }
+                  ]
+               }
+            },
+            "productCount2":{
+               "type":"DOUBLE",
+               "description":"Количество товара"
+            },
+            "productGroups2":{
+               "type":"PRODUCT_GROUPS",
+               "description":"Идентификатор списка товаров"
+            }
+         },
+         "liveText":{
+            "200":{
+               "type":"STATIC_TEXT",
+               "label":"При покупке"
+            },
+            "productCount1":{
+               "type":"DOUBLE",
+               "description":"Количество товара"
+            },
+            "201":{
+               "type":"STATIC_TEXT",
+               "label":"единиц товара из групп товаров"
+            },
+            "productGroups1":{
+               "type":"PRODUCT_GROUPS",
+               "description":"Список идентификаторов групп товаров"
+            },
+            "202":{
+               "type":"STATIC_TEXT",
+               "label":"будет предоставлена процентная скидка в размере"
+            },
+            "percentValue":{
+               "type":"DOUBLE",
+               "description":"Размер скидки в процентах",
+               "rules":{
+                  "percentValue":[
+                     {
+                        "ruleType":"MAX",
+                        "param":"100"
+                     }
+                  ]
+               }
+            },
+            "203":{
+               "type":"STATIC_TEXT",
+               "label":"% на"
+            },
+            "productCount2":{
+               "type":"DOUBLE",
+               "description":"Количество товара"
+            },
+            "204":{
+               "type":"STATIC_TEXT",
+               "label":"единиц товара из групп товаров"
+            },
+            "productGroups2":{
+               "type":"PRODUCT_GROUPS",
+               "description":"Идентификатор списка товаров"
+            }
+         },
+         "active":true,
+         "objectType":"KIT_OBJECT",
+         "resultType":"KIT_OBJECT",
+         "kitItems":[
+            {
+               "name":"Товар из группы ${productGroups1}",
+               "count":"${productCount1}",
+               "conditionTemplates":[
+                  {
+                     "active":true,
+                     "expression":"cf.hasInventGroup([${productGroups1}])",
+                     "type":"COMMON"
+                  }
+               ]
+            },
+            {
+               "name":"Товар из группы ${productGroups2}",
+               "count":"${productCount2}",
+               "rateType":"PERCENT",
+               "value":"${percentValue}",
+               "conditionTemplates":[
+                  {
+                     "active":true,
+                     "expression":"cf.hasInventGroup([${productGroups2}])",
+                     "type":"COMMON"
+                  }
+               ]
+            }
+         ],
+         "maxTimesNotSpecified":"true",
+         "tags":[
+            "COUNT",
+            "PRODUCT_GROUP",
+            "PERCENT"
+         ]
+      }
+   ]
+}
