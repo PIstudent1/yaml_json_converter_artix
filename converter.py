@@ -179,8 +179,10 @@ def json_convert(template):
 
 def main():
     yaml.add_multi_constructor('tag:yaml.org,2002:python/object:', construct)
+    
+    yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать  скидку, а не акцию!):")
 
-    with open("template.yaml", 'r', encoding='utf-8') as f:
+    with open(yaml_file, 'r', encoding='utf-8') as f:
         templates = yaml.load(f, Loader=yaml.FullLoader)
 
     # обработка
