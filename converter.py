@@ -2,28 +2,23 @@ import yaml
 import json
 import random
 from pprint import pprint
+import os
+import re
 
-
-def normalize_quotes(value):
-    """Заменяет двойные кавычки на одинарные"""
-    if isinstance(value, str):
-        return value.replace('"', "'")
-    return value
-
-
-class DiscountTransformer:
+class DiscountTransformer: 
     """Класс для трансформации Discount объектов"""
 
     def __init__(self):
+        #Список полей, которые необходимо исключить
         self.exclude_fields = [
             'counters', 'coupons', 'discountMarks', 'gifts',
             'minPriceIgnored', 'showCashTextToConsultant', 'reports'
         ]
-        self.field_order = []
+        #self.field_order = []
 
     def generate_default_id(self):
         """Генерирует случайный шестизначный ID"""
-        return str(random.randint(100000, 999999))  # строка!
+        return str(random.randint(100000, 999999))
 
     def transform_discount_rate(self, discount_rate):
         """Преобразует discountRate в rateType и calcExpr"""
@@ -43,7 +38,8 @@ class DiscountTransformer:
                     return obj['type']
         return None
 
-    def reorder_fields(self, data):
+    '''def reorder_fields(self, data):
+        #Сортирует поля по порядку указанному в field_order.
         if not isinstance(data, dict):
             return data
 
@@ -57,9 +53,10 @@ class DiscountTransformer:
             if field not in ordered_result:
                 ordered_result[field] = value
 
-        return ordered_result
+        return ordered_result'''
 
     def transform(self, data):
+        '''Приводит python объект полученный из yaml к правильному виду для дальнейшего перевода в json'''
         if not isinstance(data, dict):
             return data
 
@@ -103,13 +100,20 @@ class DiscountTransformer:
                     if value is not None:
                         result[key] = value
 
-        return self.reorder_fields(result)
+        return result
 
 transformer = DiscountTransformer()
+
+def normalize_quotes(value):
+    """Заменяет двойные кавычки на одинарные"""
+    if isinstance(value, str):
+        return value.replace('"', "'")
+    return value
 
 def construct(loader, tag_suffix, node):
     obj_type = None
 
+    '''Определяем тип объекта в зависимости от python-объекта в yaml'''
     if 'DiscountCardCondition' in tag_suffix:
         obj_type = 'CARD'
     elif 'DiscountCouponCondition' in tag_suffix:
@@ -120,12 +124,14 @@ def construct(loader, tag_suffix, node):
         obj_type = 'CHECK'
     elif 'PositionObject' in tag_suffix:
         obj_type = 'POSITION'
+    elif 'KitObjectItem' in tag_suffix:
+        obj_type = 'KIT_OBJECT'
 
     if isinstance(node, yaml.MappingNode):
         data = loader.construct_mapping(node, deep=True)
 
-        if 'Discount' in tag_suffix and 'Condition' not in tag_suffix:
-            return transformer.transform(data)
+        #if 'Discount' in tag_suffix and 'Condition' not in tag_suffix:
+        #    return transformer.transform(data)
 
     elif isinstance(node, yaml.SequenceNode):
         data = loader.construct_sequence(node)
@@ -168,24 +174,32 @@ def filter_conditions(discount):
     return discount
 
 
-def json_convert(template):
-    with open('sw_templates.json', 'w', encoding='utf-8') as f:
+def json_convert(template, file):
+    with open(file + '.json', 'w', encoding='utf-8') as f:
         json.dump(template, f, ensure_ascii=False, indent=2)
 
     #print("\nJSON:")
     #with open('sw_templates.json', encoding='utf-8') as f:
     #    print(f.read())
 
+def remove_aliases(file):
+    '''Удаляем вхождение ссылок и якорей типа &id001, *id001'''
+    file = re.sub(r'\s+&\w+', '', file)
+    file = re.sub(r'\*\w+', 'null', file)
+    return file
 
 def main():
+    #Cоздается конструктор для чтения python-объектов из yaml файла. Пример объекта - - !!python/object:artixds.domain.Discount
     yaml.add_multi_constructor('tag:yaml.org,2002:python/object:', construct)
     
-    yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать  скидку, а не акцию!):")
+    yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать скидку, а не акцию!):")
+
 
     with open(yaml_file, 'r', encoding='utf-8') as f:
+        f = remove_aliases(f.read())
         templates = yaml.load(f, Loader=yaml.FullLoader)
 
-    # обработка
+    #Обработка yaml, формирование python-объекта на его основе
     if isinstance(templates, list):
         templates = [filter_conditions(d) for d in templates]
     elif isinstance(templates, dict):
@@ -195,10 +209,10 @@ def main():
         "resultTemplates": templates
     }
 
-    #print("\nPYTHON OBJECT:")
-    #pprint(templates)
+    print("\nPYTHON OBJECT:")
+    pprint(templates)
 
-    json_convert(templates)
+    #json_convert(templates, file = os.path.splitext(yaml_file)[0])
 
 
 if __name__ == "__main__":
