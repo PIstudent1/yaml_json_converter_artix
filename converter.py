@@ -5,6 +5,9 @@ from pprint import pprint
 import os
 import re
 
+
+discount_type = None
+
 class DiscountTransformer: 
     """Класс для трансформации Discount объектов"""
 
@@ -14,7 +17,11 @@ class DiscountTransformer:
             'counters', 'coupons', 'discountMarks', 'gifts',
             'minPriceIgnored', 'showCashTextToConsultant', 'reports'
         ]
+        self.discount_type = 'discount'
         #self.field_order = []
+    def set_discount_type(self, discount_type):
+        self.discount_type = discount_type
+        return self
 
     def generate_default_id(self):
         """Генерирует случайный шестизначный ID"""
@@ -29,6 +36,52 @@ class DiscountTransformer:
         calc_expr = normalize_quotes(discount_rate.get('value'))
 
         return rate_type, calc_expr
+    
+    def transform_kit_discount_rate(self, discount_rate):
+        '''Переобразует данные для наборной скидки'''
+        kitItems = {}
+        items = discount_rate.get('items')
+        if items and isinstance(items, list) and len(items) > 0:
+            for item in items:
+                kit_item = item.get('kitItem')
+                disc_rate = item.get('discountRate')
+                if kit_item:
+                    kitItems['count'] = kit_item.get('quantity')
+                    conditions = kit_item.get('conditions')
+                    if conditions and isinstance(conditions, list):
+                        kitItems['conditionTemplates'] = []
+                        for condition in conditions:
+                            kitItems['conditionTemplates'].append({
+                                'expression': normalize_quotes(condition.get('condition')),
+                                'type': condition.get('type')
+                            })                           
+                if disc_rate:
+                    kitItems['rateType'] = disc_rate.get('type', '').upper()
+                    kitItems['value'] = normalize_quotes(disc_rate.get('value'))
+        return kitItems
+    
+    def extract_objects(self, objects):
+        kitItems = {}
+        if objects and isinstance(objects, list) and len(objects) > 0:
+            for obj in objects:
+                items = obj.get('items')
+                if items and isinstance(items, list) and len(items) > 0:
+                    for item in items:
+                        if item is None or not isinstance(item, dict):
+                            continue 
+                        kitItems['count'] = item.get('quantity')
+                        kitItems['name'] = item.get('name')
+                        objectType = item.get('type')
+                        conditions = item.get('conditions')
+                        if conditions and isinstance(conditions, list):
+                            kitItems['conditionTemplates'] = []
+                            for condition in conditions:
+                                kitItems['conditionTemplates'].append({
+                                    'expression': normalize_quotes(condition.get('condition')),
+                                    'type': condition.get('type')
+                                })
+
+        return kitItems, objectType
 
     def extract_object_type(self, data):
         """Извлекает objectType из поля objects"""
@@ -61,6 +114,13 @@ class DiscountTransformer:
             return data
 
         result = {}
+        kitItems =  []
+        if self.discount_type == 'kit':
+            self.exclude_fields = [
+                'counters', 'coupons', 'discountMarks', 'gifts',
+                'minPriceIgnored', 'showCashTextToConsultant', 'reports',
+                'clientDisplayText', 'clientText', 'cashText', 'campaign'
+            ]
 
         # id
         result['id'] = self.generate_default_id()
@@ -79,20 +139,33 @@ class DiscountTransformer:
 
         # discountRate
         if 'discountRate' in data:
-            rate_type, calc_expr = self.transform_discount_rate(data['discountRate'])
-            if rate_type:
-                result['rateType'] = rate_type
-            if calc_expr:
-                result['calcExpr'] = calc_expr
-
+            if self.discount_type == 'discount':
+                rate_type, calc_expr = self.transform_discount_rate(data['discountRate'])
+                if rate_type:
+                    result['rateType'] = rate_type
+                if calc_expr:
+                    result['calcExpr'] = calc_expr
+            else: 
+                kitItems.append(self.transform_kit_discount_rate(data['discountRate']))
+        
+        if self.discount_type == 'discount': 
         # objectType
-        object_type = self.extract_object_type(data)
-        if object_type:
-            result['objectType'] = object_type
+            object_type = self.extract_object_type(data)
+            if object_type:
+                result['objectType'] = object_type
+        else:
+            if 'objects' in data:
+                kitItem, object_type = self.extract_objects(data['objects'])
+                kitItems.append(kitItem)
+                result['objectType'] = object_type
 
         # resultType
-        result['resultType'] = "IMPACT"
+        if self.discount_type == 'discount': 
+            result['resultType'] = "IMPACT"
+        else:
+            result['resultType'] = "KIT_OBJECT"
 
+        result['kitItems'] = kitItems
         # остальные поля
         for key, value in data.items():
             if key not in self.exclude_fields:
@@ -126,12 +199,14 @@ def construct(loader, tag_suffix, node):
         obj_type = 'POSITION'
     elif 'KitObjectItem' in tag_suffix:
         obj_type = 'KIT_OBJECT'
+    elif 'KitDiscountRate' in tag_suffix:
+        transformer.set_discount_type('kit')
 
     if isinstance(node, yaml.MappingNode):
         data = loader.construct_mapping(node, deep=True)
-
         #if 'Discount' in tag_suffix and 'Condition' not in tag_suffix:
-        #    return transformer.transform(data)
+        if tag_suffix == 'artixds.domain.Discount':
+            return transformer.transform(data)
 
     elif isinstance(node, yaml.SequenceNode):
         data = loader.construct_sequence(node)
@@ -173,8 +248,8 @@ def filter_conditions(discount):
 
     return discount
 
-
 def json_convert(template, file):
+    '''Конвертация файла в json'''
     with open(file + '.json', 'w', encoding='utf-8') as f:
         json.dump(template, f, ensure_ascii=False, indent=2)
 
@@ -183,7 +258,7 @@ def json_convert(template, file):
     #    print(f.read())
 
 def remove_aliases(file):
-    '''Удаляем вхождение ссылок и якорей типа &id001, *id001'''
+    '''Удаляем вхождение ссылок и якорей типа &id001, *id001 в yaml'''
     file = re.sub(r'\s+&\w+', '', file)
     file = re.sub(r'\*\w+', 'null', file)
     return file
@@ -194,12 +269,12 @@ def main():
     
     yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать скидку, а не акцию!):")
 
-
+    #Формирование python-щбъекта на основе загруженного yaml
     with open(yaml_file, 'r', encoding='utf-8') as f:
         f = remove_aliases(f.read())
         templates = yaml.load(f, Loader=yaml.FullLoader)
 
-    #Обработка yaml, формирование python-объекта на его основе
+    #Обработка python-объекта
     if isinstance(templates, list):
         templates = [filter_conditions(d) for d in templates]
     elif isinstance(templates, dict):
@@ -209,10 +284,10 @@ def main():
         "resultTemplates": templates
     }
 
-    print("\nPYTHON OBJECT:")
-    pprint(templates)
+    #print("\nPYTHON OBJECT:")
+    #pprint(templates)
 
-    #json_convert(templates, file = os.path.splitext(yaml_file)[0])
+    json_convert(templates, file = os.path.splitext(yaml_file)[0])
 
 
 if __name__ == "__main__":

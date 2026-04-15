@@ -1,3 +1,4 @@
 *.json
 *.yaml
+*.txt
 resources/
