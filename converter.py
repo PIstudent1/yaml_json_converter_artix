@@ -1,9 +1,10 @@
 import yaml
 import json
 import random
-from pprint import pprint
+from pprint  import pprint
 import os
 import re
+
 
 
 discount_type = None
@@ -108,20 +109,48 @@ class DiscountTransformer:
 
         return ordered_result'''
 
-    def transform(self, data):
-        '''Приводит python объект полученный из yaml к правильному виду для дальнейшего перевода в json'''
-        if not isinstance(data, dict):
-            return data
+    def transform_discount(self, result, data):
+        if 'discountRate' in data:
+            rate_type, calc_expr = self.transform_discount_rate(data['discountRate'])
+            if rate_type:
+                result['rateType'] = rate_type
+            if calc_expr:
+                result['calcExpr'] = calc_expr
 
-        result = {}
-        kitItems =  []
-        if self.discount_type == 'kit':
-            self.exclude_fields = [
+        object_type = self.extract_object_type(data)
+        if object_type:
+                result['objectType'] = object_type
+
+        result['resultType'] = "IMPACT"
+
+        return result
+
+    def transform_kit_discount(self, result, data):
+        self.exclude_fields = [
                 'counters', 'coupons', 'discountMarks', 'gifts',
                 'minPriceIgnored', 'showCashTextToConsultant', 'reports',
                 'clientDisplayText', 'clientText', 'cashText', 'campaign'
             ]
+        kitItems =  []
+        if 'discountRate' in data:
+            kitItems.append(self.transform_kit_discount_rate(data['discountRate']))
 
+        if 'objects' in data:
+            kitItem, object_type = self.extract_objects(data['objects'])
+            kitItems.append(kitItem)
+            result['objectType'] = object_type
+        
+        result['resultType'] = "KIT_OBJECT"
+
+        result['kitItems'] = kitItems
+
+        return result
+
+    def transform(self, data):
+        '''Приводит python объект полученный из yaml к правильному виду для дальнейшего перевода в json'''
+        if not isinstance(data, dict):
+            return data
+        result = {}
         # id
         result['id'] = self.generate_default_id()
 
@@ -137,35 +166,11 @@ class DiscountTransformer:
         if 'conditions' in data:
             result['conditions'] = data['conditions']
 
-        # discountRate
-        if 'discountRate' in data:
-            if self.discount_type == 'discount':
-                rate_type, calc_expr = self.transform_discount_rate(data['discountRate'])
-                if rate_type:
-                    result['rateType'] = rate_type
-                if calc_expr:
-                    result['calcExpr'] = calc_expr
-            else: 
-                kitItems.append(self.transform_kit_discount_rate(data['discountRate']))
-        
-        if self.discount_type == 'discount': 
-        # objectType
-            object_type = self.extract_object_type(data)
-            if object_type:
-                result['objectType'] = object_type
+        if self.discount_type == 'discount':
+            self.transform_discount(result, data)
         else:
-            if 'objects' in data:
-                kitItem, object_type = self.extract_objects(data['objects'])
-                kitItems.append(kitItem)
-                result['objectType'] = object_type
+            self.transform_kit_discount(result, data)
 
-        # resultType
-        if self.discount_type == 'discount': 
-            result['resultType'] = "IMPACT"
-        else:
-            result['resultType'] = "KIT_OBJECT"
-
-        result['kitItems'] = kitItems
         # остальные поля
         for key, value in data.items():
             if key not in self.exclude_fields:
@@ -176,6 +181,26 @@ class DiscountTransformer:
         return result
 
 transformer = DiscountTransformer()
+
+
+def validate_yaml_file(file_path):
+    """Валидация YAML файла перед загрузкой"""
+    # Проверка существования файла
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Файл не найден: {file_path}")
+    
+    # Проверка расширения файла
+    if not file_path.lower().endswith(('.yaml', '.yml')):
+        raise ValueError(f"Файл должен иметь расширение .yaml или .yml: {file_path}")
+    
+    # Проверка размера файла
+    file_size = os.path.getsize(file_path)
+    if file_size == 0:
+        raise ValueError(f"Файл пуст: {file_path}")
+    
+    # Проверка читаемости файла
+    if not os.access(file_path, os.R_OK):
+        raise PermissionError(f"Нет прав на чтение файла: {file_path}")
 
 def normalize_quotes(value):
     """Заменяет двойные кавычки на одинарные"""
@@ -219,7 +244,6 @@ def construct(loader, tag_suffix, node):
 
     return data
 
-
 def filter_conditions(discount):
     """Фильтрует и упрощает условия"""
 
@@ -249,13 +273,21 @@ def filter_conditions(discount):
     return discount
 
 def json_convert(template, file):
-    '''Конвертация файла в json'''
-    with open(file + '.json', 'w', encoding='utf-8') as f:
-        json.dump(template, f, ensure_ascii=False, indent=2)
 
-    #print("\nJSON:")
-    #with open('sw_templates.json', encoding='utf-8') as f:
-    #    print(f.read())
+    if not template:
+        return False
+    
+    '''Конвертация файла в json'''
+    try:
+        with open(file + '.json', 'w', encoding='utf-8') as f:
+            json.dump(template, f, ensure_ascii=False, indent=2)
+        return True
+    except IOError:
+        return False
+    except TypeError:
+        return False
+    except Exception:
+        return False
 
 def remove_aliases(file):
     '''Удаляем вхождение ссылок и якорей типа &id001, *id001 в yaml'''
@@ -266,13 +298,54 @@ def remove_aliases(file):
 def main():
     #Cоздается конструктор для чтения python-объектов из yaml файла. Пример объекта - - !!python/object:artixds.domain.Discount
     yaml.add_multi_constructor('tag:yaml.org,2002:python/object:', construct)
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать скидку, а не акцию!):")
+        
+        if not yaml_file:
+            print("Путь к файлу не может быть пустым. Попробуйте снова.")
+            continue
+                
+        try:
+            validate_yaml_file(yaml_file)
+            break
+        except FileNotFoundError as e:
+            print(f"Ошибка: {e}")
+            if attempt == max_attempts - 1:
+                print("Превышено количество попыток. Программа завершена.")
+                return
+            continue
+        except (ValueError, PermissionError) as e:
+            print(f"Ошибка: {e}")
+            if attempt == max_attempts - 1:
+                print("Превышено количество попыток. Программа завершена.")
+                return
+            continue
+    else:
+        print("Не удалось указать корректный файл. Программа завершена.")
+        return
     
-    yaml_file = input("\nУкажите путь до yaml файла со скидкой (yaml должен содержать скидку, а не акцию!):")
-
-    #Формирование python-щбъекта на основе загруженного yaml
-    with open(yaml_file, 'r', encoding='utf-8') as f:
-        f = remove_aliases(f.read())
-        templates = yaml.load(f, Loader=yaml.FullLoader)
+    try:
+            with open(yaml_file, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+                if not file_content:
+                    raise ValueError("Файл пуст")
+                    
+                file_content = remove_aliases(file_content)
+                templates = yaml.load(file_content, Loader=yaml.FullLoader)
+                
+                if templates is None:
+                    raise ValueError("YAML файл не содержит данных")
+                    
+    except yaml.YAMLError as e:
+            print(f"Ошибка в синтаксисе YAML файла: {e}")
+            return
+    except IOError as e:
+            print(f"Не удалось прочитать файл: {e}")
+            return
+    except Exception as e:
+            print(f"Ошибка при загрузке файла: {e}")
+            return
 
     #Обработка python-объекта
     if isinstance(templates, list):
@@ -283,11 +356,11 @@ def main():
     templates = {
         "resultTemplates": templates
     }
+    output_file = os.path.splitext(yaml_file)[0]
+    if json_convert(templates, output_file):
+        print(f"\nКонвертация успешно завершена! Шаблон сохранен как: {output_file}.json")
+    else:("\nОшибка при сохранении шаблона")
 
-    #print("\nPYTHON OBJECT:")
-    #pprint(templates)
-
-    json_convert(templates, file = os.path.splitext(yaml_file)[0])
 
 
 if __name__ == "__main__":
